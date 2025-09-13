@@ -2,3 +2,4 @@
 /scripts
 /.env
 /.env.local
+pnpm-lock.yaml
