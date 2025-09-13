@@ -60,7 +60,8 @@ if (process.env.NODE_ENV !== 'production') {
 		try {
 			const { prisma } = await import('../services/prisma.js');
 			const tenantId = req.auth!.tenantId;
-			const { shopDomain = 'dev-shop.example.myshopify.com', token = 'dev_fake_token' } = req.body || {};
+			const { env } = await import('../config/env.js');
+			const { shopDomain = env.DEV_DEFAULT_SHOP_DOMAIN, token = 'dev_fake_token' } = req.body || {};
 			const shop = await prisma.shopifyShop.upsert({
 				where: { shopDomain },
 				update: { accessToken: token, installState: 'active' },

@@ -31,4 +31,8 @@ export const env = {
   LOG_LEVEL: process.env.LOG_LEVEL || 'info',
   CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
   SCHEDULER_ENABLED: process.env.SCHEDULER_ENABLED !== 'false'
+  ,QUEUE_DRIVER: process.env.QUEUE_DRIVER || 'memory' // 'memory' | 'redis'
+  ,REDIS_URL: process.env.REDIS_URL || 'redis://localhost:6379'
+  ,WEBHOOK_SKIP_HMAC: process.env.WEBHOOK_SKIP_HMAC === 'true' || process.env.DEV_FAKE_SHOPIFY === 'true'
+  ,DEV_DEFAULT_SHOP_DOMAIN: process.env.DEV_DEFAULT_SHOP_DOMAIN || 'dev-shop.example.myshopify.com'
 };
