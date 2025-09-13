@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { tenantsRouter } from './tenants.ts';
+import { tenantsRouter } from './tenants.js';
 import { metricsRouter } from './metrics.js';
 import { syncRouter } from './sync.js';
 import { webhooksRouter } from './webhooks.js';
@@ -52,6 +52,21 @@ if (process.env.NODE_ENV !== 'production') {
 				}
 			});
 			return res.json({ status: 'seeded' });
+		} catch (e: any) {
+			return res.status(500).json({ error: e.message });
+		}
+	});
+	apiRouter.post('/dev/create-shop', authMiddleware, async (req, res) => {
+		try {
+			const { prisma } = await import('../services/prisma.js');
+			const tenantId = req.auth!.tenantId;
+			const { shopDomain = 'dev-shop.example.myshopify.com', token = 'dev_fake_token' } = req.body || {};
+			const shop = await prisma.shopifyShop.upsert({
+				where: { shopDomain },
+				update: { accessToken: token, installState: 'active' },
+				create: { tenantId, shopDomain, accessToken: token, installState: 'active' }
+			});
+			return res.json({ status: 'ok', shop });
 		} catch (e: any) {
 			return res.status(500).json({ error: e.message });
 		}

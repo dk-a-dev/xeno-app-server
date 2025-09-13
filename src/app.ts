@@ -9,6 +9,8 @@ export function createApp() {
   const app = express();
   app.use(helmet());
   app.use(cors({ origin: env.CORS_ORIGIN === '*' ? '*' : env.CORS_ORIGIN.split(',').map(s => s.trim()) }));
+  app.use('/api/webhooks/shopify', express.raw({ type: '*/*' }));
+
   app.use(express.json());
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
