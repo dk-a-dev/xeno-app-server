@@ -1,0 +1,95 @@
+// Multi-tenant Prisma schema
+// Each table (except Tenant) includes tenantId for isolation
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  shops        ShopifyShop[]
+  customers    Customer[]
+  products     Product[]
+  orders       Order[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model ShopifyShop {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  shopDomain     String   @unique
+  accessToken    String?
+  installState   String   @default("pending") // pending | active | revoked
+  lastSyncAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@index([tenantId])
+}
+
+model Customer {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  shopifyId   String?  @unique
+  email       String?
+  firstName   String?
+  lastName    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  orders      Order[]
+  @@index([tenantId])
+  @@index([email])
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  shopifyId   String?   @unique
+  title       String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lineItems   OrderLineItem[]
+  @@index([tenantId])
+}
+
+model Order {
+  id          String          @id @default(cuid())
+  tenantId    String
+  tenant      Tenant          @relation(fields: [tenantId], references: [id])
+  shopifyId   String?         @unique
+  customerId  String?
+  customer    Customer?       @relation(fields: [customerId], references: [id])
+  totalPrice  Decimal         @default(0)
+  orderDate   DateTime        @default(now())
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  lineItems   OrderLineItem[]
+  @@index([tenantId])
+  @@index([tenantId, orderDate])
+}
+
+model OrderLineItem {
+  id          String   @id @default(cuid())
+  tenantId    String
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id])
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id])
+  quantity    Int
+  unitPrice   Decimal  @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([tenantId])
+  @@index([tenantId, orderId])
+}
