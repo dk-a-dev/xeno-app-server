@@ -14,7 +14,7 @@ export function createApp() {
   app.use(express.json());
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
-  app.use('/api', apiRouter);
+  app.use('/api/v1', apiRouter);
 
   app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     logger.error(err);
