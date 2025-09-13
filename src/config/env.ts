@@ -20,7 +20,15 @@ export const env = {
   PORT: parseInt(process.env.PORT || '4000', 10),
   DATABASE_URL: buildDatabaseUrl(),
   JWT_SECRET: process.env.JWT_SECRET || 'devsecret',
+  JWT_EXP_HOURS: parseInt(process.env.JWT_EXP_HOURS || '12', 10),
   SYNC_INTERVAL_CRON: process.env.SYNC_INTERVAL_CRON || '*/15 * * * *',
   SHOPIFY_API_KEY: process.env.SHOPIFY_API_KEY || '',
   SHOPIFY_API_SECRET: process.env.SHOPIFY_API_SECRET || '',
+  SHOPIFY_SCOPES: (process.env.SHOPIFY_SCOPES || 'read_orders,read_products,read_customers').split(','),
+  SHOPIFY_APP_URL: process.env.SHOPIFY_APP_URL || 'http://localhost:4000',
+  SHOPIFY_API_VERSION: process.env.SHOPIFY_API_VERSION || '2024-04',
+  DEV_FAKE_SHOPIFY: process.env.DEV_FAKE_SHOPIFY === 'true',
+  LOG_LEVEL: process.env.LOG_LEVEL || 'info',
+  CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
+  SCHEDULER_ENABLED: process.env.SCHEDULER_ENABLED !== 'false'
 };

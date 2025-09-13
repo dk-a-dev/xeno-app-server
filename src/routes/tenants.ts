@@ -6,7 +6,6 @@ import { env } from '../config/env.js';
 
 export const tenantsRouter = Router();
 
-// Onboard new tenant
 tenantsRouter.post('/', async (req, res) => {
   const { name, email, password } = req.body;
   if (!name || !email || !password) return res.status(400).json({ error: 'Missing fields' });
@@ -24,6 +23,10 @@ tenantsRouter.post('/login', async (req, res) => {
   if (!tenant) return res.status(401).json({ error: 'Invalid credentials' });
   const match = await bcrypt.compare(password, tenant.passwordHash);
   if (!match) return res.status(401).json({ error: 'Invalid credentials' });
-  const token = jwt.sign({ tenantId: tenant.id, userId: tenant.id, email: tenant.email }, env.JWT_SECRET, { expiresIn: '12h' });
+  const token = jwt.sign(
+    { tenantId: tenant.id, userId: tenant.id, email: tenant.email },
+    env.JWT_SECRET,
+    { expiresIn: `${env.JWT_EXP_HOURS}h` }
+  );
   return res.json({ token });
 });

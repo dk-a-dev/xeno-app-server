@@ -3,12 +3,14 @@ import { tenantsRouter } from './tenants.ts';
 import { metricsRouter } from './metrics.js';
 import { syncRouter } from './sync.js';
 import { webhooksRouter } from './webhooks.js';
+import { shopifyAuthRouter } from './shopifyAuth.js';
 
 export const apiRouter = Router();
 apiRouter.use('/tenants', tenantsRouter);
 apiRouter.use('/metrics', metricsRouter);
 apiRouter.use('/sync', syncRouter);
 apiRouter.use('/webhooks', webhooksRouter);
+apiRouter.use('/shopify', shopifyAuthRouter);
 
 // Dev-only utilities
 if (process.env.NODE_ENV !== 'production') {
