@@ -9,6 +9,15 @@ interface ShopifyProduct { id: string; title: string; }
 interface ShopifyOrderLineItem { id: string; product_id?: string; quantity: number; price: string; }
 interface ShopifyOrder { id: string; created_at: string; total_price: string; customer?: ShopifyCustomer; line_items: ShopifyOrderLineItem[]; }
 
+interface FullSyncResult {
+  customers: number;
+  products: number;
+  orders: number;
+  durationMs: number;
+  shopDomain?: string;
+  stubbed: boolean;
+}
+
 class ShopifyService {
   // Step 1 generate install URL (OAuth) – placeholder values
   generateInstallUrl(shopDomain: string, state: string) {
@@ -61,67 +70,125 @@ class ShopifyService {
   }
 
   // Below fetch methods are stubs; real ones would paginate Shopify REST/GraphQL
-  async fetchCustomers(_tenantId: string): Promise<ShopifyCustomer[]> { return []; }
-  async fetchProducts(_tenantId: string): Promise<ShopifyProduct[]> { return []; }
-  async fetchOrders(_tenantId: string): Promise<ShopifyOrder[]> { return []; }
+  private async restGet(shopDomain: string, token: string, resource: string): Promise<any[]> {
+    // Basic single-page fetch (can be extended to pagination w/ Link headers)
+    const url = `https://${shopDomain}/admin/api/${env.SHOPIFY_API_VERSION}/${resource}.json?limit=250`;
+    const resp = await fetch(url, { headers: { 'X-Shopify-Access-Token': token, 'Accept': 'application/json' } });
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Shopify ${resource} fetch failed: ${resp.status} ${text}`);
+    }
+    const json = await resp.json();
+    // Resource name → array extraction (customers, products, orders)
+    const key = resource.split('/')[0];
+    return json[key] || [];
+  }
 
-  async fullSync(tenantId: string) {
-    // Fetch raw data
-    const [customers, products, orders] = await Promise.all([
-      this.fetchCustomers(tenantId),
-      this.fetchProducts(tenantId),
-      this.fetchOrders(tenantId)
-    ]);
+  private buildStubData(tenantId: string) {
+    const now = new Date();
+    const customers: ShopifyCustomer[] = [
+      { id: 'c_stub_1', email: `stub1+${tenantId}@example.com`, first_name: 'Alice', last_name: 'Stub' },
+      { id: 'c_stub_2', email: `stub2+${tenantId}@example.com`, first_name: 'Bob', last_name: 'Stub' }
+    ];
+    const products: ShopifyProduct[] = [
+      { id: 'p_stub_1', title: 'Stub Tee' },
+      { id: 'p_stub_2', title: 'Stub Hoodie' }
+    ];
+    const orders: ShopifyOrder[] = [
+      {
+        id: 'o_stub_1',
+        created_at: new Date(now.getTime() - 3600_000).toISOString(),
+        total_price: '59.00',
+        customer: customers[0],
+        line_items: [
+          { id: 'li_stub_1', product_id: products[0].id, quantity: 1, price: '59.00' }
+        ]
+      },
+      {
+        id: 'o_stub_2',
+        created_at: new Date(now.getTime() - 2 * 3600_000).toISOString(),
+        total_price: '89.00',
+        customer: customers[1],
+        line_items: [
+          { id: 'li_stub_2', product_id: products[1].id, quantity: 1, price: '89.00' }
+        ]
+      }
+    ];
+    return { customers, products, orders };
+  }
 
-    // Ingestion (simplified & idempotent where possible)
-    // Wrap in a transaction for consistency
+  async fetchCustomers(tenantId: string, shopDomain?: string, token?: string): Promise<ShopifyCustomer[]> {
+    if (env.DEV_FAKE_SHOPIFY || !shopDomain || !token) return this.buildStubData(tenantId).customers;
+    return this.restGet(shopDomain, token, 'customers');
+  }
+  async fetchProducts(tenantId: string, shopDomain?: string, token?: string): Promise<ShopifyProduct[]> {
+    if (env.DEV_FAKE_SHOPIFY || !shopDomain || !token) return this.buildStubData(tenantId).products;
+    return this.restGet(shopDomain, token, 'products');
+  }
+  async fetchOrders(tenantId: string, shopDomain?: string, token?: string): Promise<ShopifyOrder[]> {
+    if (env.DEV_FAKE_SHOPIFY || !shopDomain || !token) return this.buildStubData(tenantId).orders;
+    return this.restGet(shopDomain, token, 'orders');
+  }
+
+  async fullSync(tenantId: string): Promise<FullSyncResult> {
+    const started = Date.now();
+    // Acquire active shop & token (first active for tenant)
+    const shop = await prisma.shopifyShop.findFirst({ where: { tenantId, installState: 'active' } });
+    const shopDomain = shop?.shopDomain;
+    const token = shop?.accessToken || undefined;
+    const stubbed = env.DEV_FAKE_SHOPIFY || !token || !shopDomain;
+    if (stubbed && !env.DEV_FAKE_SHOPIFY) {
+      logger.warn({ tenantId }, 'No active shop/token; using stub data ingestion');
+    }
+
+    let customers: ShopifyCustomer[] = [];
+    let products: ShopifyProduct[] = [];
+    let orders: ShopifyOrder[] = [];
+    try {
+      [customers, products, orders] = await Promise.all([
+        this.fetchCustomers(tenantId, shopDomain, token),
+        this.fetchProducts(tenantId, shopDomain, token),
+        this.fetchOrders(tenantId, shopDomain, token)
+      ]);
+    } catch (e: any) {
+      logger.error({ err: e, tenantId }, 'Fetch phase failed');
+      throw e;
+    }
+
+    // Index for quick lookups
+    const customerIdMap = new Map<string, string>();
+    const productIdMap = new Map<string, string>();
+
     await prisma.$transaction(async (tx) => {
       for (const c of customers) {
-        await tx.customer.upsert({
+        const record = await tx.customer.upsert({
           where: { shopifyId: c.id },
-            update: {
-              email: c.email,
-              firstName: c.first_name,
-              lastName: c.last_name
-            },
-            create: {
-              tenantId,
-              shopifyId: c.id,
-              email: c.email,
-              firstName: c.first_name,
-              lastName: c.last_name
-            }
+          update: { email: c.email, firstName: c.first_name, lastName: c.last_name },
+          create: { tenantId, shopifyId: c.id, email: c.email, firstName: c.first_name, lastName: c.last_name }
         });
+        customerIdMap.set(c.id, record.id);
       }
       for (const p of products) {
-        await tx.product.upsert({
+        const record = await tx.product.upsert({
           where: { shopifyId: p.id },
           update: { title: p.title },
           create: { tenantId, shopifyId: p.id, title: p.title }
         });
+        productIdMap.set(p.id, record.id);
       }
       for (const o of orders) {
-        // Upsert order + line items (simplified: delete/recreate line items)
         const existing = await tx.order.findUnique({ where: { shopifyId: o.id } });
         let orderId: string;
+        const baseData = {
+          totalPrice: o.total_price ? parseFloat(o.total_price) : 0,
+          orderDate: new Date(o.created_at),
+          customerId: o.customer?.id ? customerIdMap.get(o.customer.id) : undefined
+        };
         if (!existing) {
-          const created = await tx.order.create({
-            data: {
-              tenantId,
-              shopifyId: o.id,
-              totalPrice: o.total_price ? parseFloat(o.total_price) : 0,
-              orderDate: new Date(o.created_at)
-            }
-          });
-          orderId = created.id;
+          const created = await tx.order.create({ data: { tenantId, shopifyId: o.id, ...baseData } });
+            orderId = created.id;
         } else {
-          const updated = await tx.order.update({
-            where: { id: existing.id },
-            data: {
-              totalPrice: o.total_price ? parseFloat(o.total_price) : 0,
-              orderDate: new Date(o.created_at)
-            }
-          });
+          const updated = await tx.order.update({ where: { id: existing.id }, data: baseData });
           orderId = updated.id;
           await tx.orderLineItem.deleteMany({ where: { orderId } });
         }
@@ -130,17 +197,21 @@ class ShopifyService {
             data: {
               tenantId,
               orderId,
-              productId: undefined, // Would map via product shopifyId lookup
+              productId: li.product_id ? productIdMap.get(li.product_id) : undefined,
               quantity: li.quantity,
               unitPrice: li.price ? parseFloat(li.price) : 0
             }
           });
         }
       }
+      if (shop && !stubbed) {
+        await tx.shopifyShop.update({ where: { id: shop.id }, data: { lastSyncAt: new Date() } });
+      }
     });
 
-    logger.info({ tenantId }, 'Full sync executed (stub w/ ingestion)');
-    return { customers: customers.length, products: products.length, orders: orders.length };
+    const durationMs = Date.now() - started;
+    logger.info({ tenantId, counts: { customers: customers.length, products: products.length, orders: orders.length }, durationMs, stubbed }, 'Full sync completed');
+    return { customers: customers.length, products: products.length, orders: orders.length, durationMs, shopDomain, stubbed };
   }
 }
 
