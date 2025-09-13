@@ -122,3 +122,13 @@ metricsRouter.get('/order-distribution-hour', async (req, res) => {
   return res.json(base);
 });
 
+// Custom event counts grouped by type within timeframe
+metricsRouter.get('/custom-event-counts', async (req, res) => {
+  const tenantId = req.auth!.tenantId;
+  const { start, end } = req.query;
+  const startDate = start ? new Date(String(start)) : new Date(Date.now() - 30 * 86400000);
+  const endDate = end ? new Date(String(end)) : new Date();
+  const rows: Array<{ type: string; count: bigint }> = await prisma.$queryRaw(Prisma.sql`SELECT "type", COUNT(*)::bigint AS count FROM "CustomEvent" WHERE "tenantId"=${tenantId} AND "occurredAt" BETWEEN ${startDate} AND ${endDate} GROUP BY "type" ORDER BY count DESC`);
+  return res.json(rows.map(r => ({ type: r.type, count: Number(r.count) })));
+});
+

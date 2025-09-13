@@ -9,6 +9,7 @@ import { authMiddleware } from '../middleware/auth.js';
 import { customersRouter } from './customers.js';
 import { ordersRouter } from './orders.js';
 import { productsRouter } from './products.js';
+import { eventsRouter } from './events.js';
 
 export const apiRouter = Router();
 apiRouter.use('/tenants', tenantsRouter);
@@ -21,6 +22,7 @@ apiRouter.use('/shops', shopsRouter);
 apiRouter.use('/customers', customersRouter);
 apiRouter.use('/orders', ordersRouter);
 apiRouter.use('/products', productsRouter);
+apiRouter.use('/events', eventsRouter);
 
 // Dev-only utilities
 if (process.env.NODE_ENV !== 'production') {
