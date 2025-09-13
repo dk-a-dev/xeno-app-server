@@ -7,8 +7,14 @@ export const shopsRouter = Router();
 shopsRouter.get('/', authMiddleware, async (req, res) => {
   try {
     const tenantId = req.auth!.tenantId;
+    const q = (req.query.q as string | undefined)?.trim();
+    const state = (req.query.state as string | undefined)?.trim();
+    const where: any = { tenantId };
+    if (q) where.shopDomain = { contains: q, mode: 'insensitive' };
+    if (state) where.installState = state;
     const shops = await prisma.shopifyShop.findMany({
-      where: { tenantId },
+      where,
+      orderBy: { createdAt: 'desc' },
       select: { id: true, shopDomain: true, installState: true, lastSyncAt: true, createdAt: true, updatedAt: true }
     });
     return res.json({ shops });
