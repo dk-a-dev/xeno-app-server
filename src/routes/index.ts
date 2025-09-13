@@ -4,6 +4,7 @@ import { metricsRouter } from './metrics.js';
 import { syncRouter } from './sync.js';
 import { webhooksRouter } from './webhooks.js';
 import { shopifyAuthRouter } from './shopifyAuth.js';
+import { shopsRouter } from './shops.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 export const apiRouter = Router();
@@ -12,6 +13,7 @@ apiRouter.use('/metrics', metricsRouter);
 apiRouter.use('/sync', syncRouter);
 apiRouter.use('/webhooks', webhooksRouter);
 apiRouter.use('/shopify', shopifyAuthRouter);
+apiRouter.use('/shops', shopsRouter);
 
 // Dev-only utilities
 if (process.env.NODE_ENV !== 'production') {
