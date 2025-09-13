@@ -13,6 +13,8 @@ import { productsRouter } from './products.js';
 export const apiRouter = Router();
 apiRouter.use('/tenants', tenantsRouter);
 apiRouter.use('/metrics', metricsRouter);
+// Alias for environments with aggressive content blockers filtering "/metrics"
+apiRouter.use('/stats', metricsRouter);
 apiRouter.use('/sync', syncRouter);
 apiRouter.use('/webhooks', webhooksRouter);
 apiRouter.use('/shopify', shopifyAuthRouter);
