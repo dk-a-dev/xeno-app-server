@@ -70,18 +70,55 @@ class ShopifyService {
   }
 
   // Below fetch methods are stubs; real ones would paginate Shopify REST/GraphQL
-  private async restGet(shopDomain: string, token: string, resource: string): Promise<any[]> {
-    // Basic single-page fetch (can be extended to pagination w/ Link headers)
-    const url = `https://${shopDomain}/admin/api/${env.SHOPIFY_API_VERSION}/${resource}.json?limit=250`;
-    const resp = await fetch(url, { headers: { 'X-Shopify-Access-Token': token, 'Accept': 'application/json' } });
-    if (!resp.ok) {
-      const text = await resp.text();
-      throw new Error(`Shopify ${resource} fetch failed: ${resp.status} ${text}`);
+  private async restPaginated(shopDomain: string, token: string, resource: string): Promise<any[]> {
+    const collected: any[] = [];
+    let pageInfo: string | undefined = undefined;
+    const base = `https://${shopDomain}/admin/api/${env.SHOPIFY_API_VERSION}/${resource}.json`;
+    let attempt = 0;
+    while (true) {
+      let url = `${base}?limit=250`;
+      if (pageInfo) url += `&page_info=${encodeURIComponent(pageInfo)}`;
+      const resp = await fetch(url, { headers: { 'X-Shopify-Access-Token': token, 'Accept': 'application/json' } });
+      if (resp.status === 429) {
+        // Rate limited; exponential backoff
+        const delay = Math.min(1000 * Math.pow(2, attempt), 8000);
+        await new Promise(r => setTimeout(r, delay));
+        attempt++;
+        continue;
+      }
+      attempt = 0; // reset after successful call
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Shopify ${resource} fetch failed: ${resp.status} ${text}`);
+      }
+      // Rate limit header format: current/limit e.g. 10/40
+      const apiCallLimit = resp.headers.get('x-shopify-shop-api-call-limit');
+      if (apiCallLimit) {
+        const [used, cap] = apiCallLimit.split('/').map(Number);
+        if (cap && used / cap > 0.8) {
+          // Soft throttle to stay under hard limits
+            await new Promise(r => setTimeout(r, 300));
+        }
+      }
+      const json = await resp.json();
+      const key = resource.split('/')[0];
+      const arr = json[key] || [];
+      collected.push(...arr);
+      const link = resp.headers.get('link');
+      if (!link) break;
+      const nextMatch = link.split(',').map(s => s.trim()).find(s => s.endsWith('rel="next"'));
+      if (!nextMatch) break;
+      const urlPart = nextMatch.split(';')[0].trim();
+      const m = urlPart.match(/page_info=([^&>]+)/);
+      if (!m) break;
+      pageInfo = decodeURIComponent(m[1].replace(/"/g, ''));
+      // Safety: stop after 40 pages to avoid runaway in dev
+      if (collected.length > 40 * 250) {
+        logger.warn({ resource, collected: collected.length }, 'Pagination early stop (safety)');
+        break;
+      }
     }
-    const json = await resp.json();
-    // Resource name → array extraction (customers, products, orders)
-    const key = resource.split('/')[0];
-    return json[key] || [];
+    return collected;
   }
 
   private buildStubData(tenantId: string) {
@@ -119,15 +156,15 @@ class ShopifyService {
 
   async fetchCustomers(tenantId: string, shopDomain?: string, token?: string): Promise<ShopifyCustomer[]> {
     if (env.DEV_FAKE_SHOPIFY || !shopDomain || !token) return this.buildStubData(tenantId).customers;
-    return this.restGet(shopDomain, token, 'customers');
+    return this.restPaginated(shopDomain, token, 'customers');
   }
   async fetchProducts(tenantId: string, shopDomain?: string, token?: string): Promise<ShopifyProduct[]> {
     if (env.DEV_FAKE_SHOPIFY || !shopDomain || !token) return this.buildStubData(tenantId).products;
-    return this.restGet(shopDomain, token, 'products');
+    return this.restPaginated(shopDomain, token, 'products');
   }
   async fetchOrders(tenantId: string, shopDomain?: string, token?: string): Promise<ShopifyOrder[]> {
     if (env.DEV_FAKE_SHOPIFY || !shopDomain || !token) return this.buildStubData(tenantId).orders;
-    return this.restGet(shopDomain, token, 'orders');
+    return this.restPaginated(shopDomain, token, 'orders');
   }
 
   async fullSync(tenantId: string): Promise<FullSyncResult> {

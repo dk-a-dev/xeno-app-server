@@ -1,24 +1,42 @@
 import { Router } from 'express';
 import { prisma } from '../services/prisma.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { Decimal } from '@prisma/client/runtime/library';
 
 export const metricsRouter = Router();
 metricsRouter.use(authMiddleware);
 
 metricsRouter.get('/summary', async (req, res) => {
   const tenantId = req.auth!.tenantId;
-  const [customers, ordersAgg] = await Promise.all([
+  const now = Date.now();
+  const sevenDaysAgo = new Date(now - 7 * 86400000);
+  const [customerCount, ordersAgg, recentRevenueAgg] = await Promise.all([
     prisma.customer.count({ where: { tenantId } }),
     prisma.order.aggregate({
       _count: { id: true },
       _sum: { totalPrice: true },
       where: { tenantId }
+    }),
+    prisma.order.aggregate({
+      _sum: { totalPrice: true },
+      where: { tenantId, orderDate: { gte: sevenDaysAgo } }
     })
   ]);
+  const totalOrders = ordersAgg._count.id;
+  const totalRevenueDecimal = (ordersAgg._sum.totalPrice as Decimal | null) || new Decimal(0);
+  const totalRevenue = Number(totalRevenueDecimal.toString());
+  const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+  const recentRevenueDecimal = (recentRevenueAgg._sum.totalPrice as Decimal | null) || new Decimal(0);
+  const recentRevenue = Number(recentRevenueDecimal.toString());
+  // Simple LTV proxy: totalRevenue / customerCount (if customers > 0)
+  const customerLtv = customerCount > 0 ? totalRevenue / customerCount : 0;
   return res.json({
-    totalCustomers: customers,
-    totalOrders: ordersAgg._count.id,
-    totalRevenue: ordersAgg._sum.totalPrice || 0
+    totalCustomers: customerCount,
+    totalOrders,
+    totalRevenue,
+    averageOrderValue,
+    customerLtv,
+    recent7DayRevenue: recentRevenue
   });
 });
 
@@ -46,7 +64,8 @@ metricsRouter.get('/top-customers', async (req, res) => {
     orderBy: { _sum: { totalPrice: 'desc' } },
     take: 5
   });
-  const customers = await prisma.customer.findMany({ where: { id: { in: top.map(t => t.customerId) } } });
+  const idList = top.map(t => t.customerId).filter((id): id is string => !!id);
+  const customers = await prisma.customer.findMany({ where: { id: { in: idList } } });
   const result = top.map(t => ({
     customer: customers.find(c => c.id === t.customerId),
     spend: t._sum.totalPrice || 0
