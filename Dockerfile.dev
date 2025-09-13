@@ -1,0 +1,19 @@
+FROM node:20-bookworm-slim
+
+# Install required system libraries (openssl for Prisma engine, and certificates)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+		openssl ca-certificates curl bash \
+	&& rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+ENV NODE_ENV=development
+RUN corepack enable
+
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm install
+
+# Copy source (Prisma client will be generated at runtime via postinstall or compose command)
+COPY . .
+
+EXPOSE 4000
+CMD ["pnpm","dev"]
