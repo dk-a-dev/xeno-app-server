@@ -15,5 +15,5 @@ RUN pnpm install
 # Copy source (Prisma client will be generated at runtime via postinstall or compose command)
 COPY . .
 
-EXPOSE 4000
+EXPOSE 8080
 CMD ["pnpm","dev"]
