@@ -121,15 +121,11 @@ class ShopifyService {
   private buildStubData(tenantId: string) {
     const now = new Date();
     
-    // Generate 20 customers with diverse names
+    // Generate 8 customers with diverse names (reduced from 20)
     const customerNames = [
       { first: 'Alice', last: 'Johnson' }, { first: 'Bob', last: 'Smith' }, { first: 'Carol', last: 'Williams' },
       { first: 'David', last: 'Brown' }, { first: 'Emma', last: 'Davis' }, { first: 'Frank', last: 'Miller' },
-      { first: 'Grace', last: 'Wilson' }, { first: 'Henry', last: 'Moore' }, { first: 'Isabella', last: 'Taylor' },
-      { first: 'Jack', last: 'Anderson' }, { first: 'Katie', last: 'Thomas' }, { first: 'Liam', last: 'Jackson' },
-      { first: 'Maya', last: 'White' }, { first: 'Noah', last: 'Harris' }, { first: 'Olivia', last: 'Martin' },
-      { first: 'Paul', last: 'Thompson' }, { first: 'Quinn', last: 'Garcia' }, { first: 'Ruby', last: 'Martinez' },
-      { first: 'Sam', last: 'Robinson' }, { first: 'Tina', last: 'Clark' }
+      { first: 'Grace', last: 'Wilson' }, { first: 'Henry', last: 'Moore' }
     ];
     
     const customers: ShopifyCustomer[] = customerNames.map((name, i) => ({
@@ -139,7 +135,7 @@ class ShopifyService {
       last_name: name.last
     }));
 
-    // Generate 15 products across different categories with varied pricing
+    // Generate 8 products across different categories (reduced from 15)
     const productData = [
       { title: 'Premium Cotton T-Shirt', price: 29.99 },
       { title: 'Designer Hoodie', price: 89.99 },
@@ -148,14 +144,7 @@ class ShopifyService {
       { title: 'Vintage Leather Jacket', price: 199.99 },
       { title: 'Running Sneakers', price: 129.99 },
       { title: 'Artisan Coffee Mug', price: 24.99 },
-      { title: 'Eco-Friendly Water Bottle', price: 34.99 },
-      { title: 'Professional Backpack', price: 79.99 },
-      { title: 'Silk Scarf Collection', price: 69.99 },
-      { title: 'Gaming Mouse Pad', price: 19.99 },
-      { title: 'Handcrafted Wooden Bowl', price: 45.99 },
-      { title: 'Organic Skincare Set', price: 124.99 },
-      { title: 'Bluetooth Speaker', price: 89.99 },
-      { title: 'Premium Sunglasses', price: 149.99 }
+      { title: 'Eco-Friendly Water Bottle', price: 34.99 }
     ];
     
     const products: ShopifyProduct[] = productData.map((product, i) => ({
@@ -163,40 +152,32 @@ class ShopifyService {
       title: product.title
     }));
 
-    // Generate 50+ orders with realistic distribution
+    // Generate manageable number of orders (1-2 orders per customer max)
     const orders: ShopifyOrder[] = [];
     let orderCounter = 1;
     
-    // Create orders for each customer (1-4 orders per customer)
+    // Create orders for each customer (1-2 orders per customer)
     customers.forEach((customer, customerIndex) => {
-      const numOrders = Math.floor(Math.random() * 4) + 1; // 1-4 orders per customer
+      const numOrders = Math.floor(Math.random() * 2) + 1; // 1-2 orders per customer
       
       for (let orderIndex = 0; orderIndex < numOrders; orderIndex++) {
-        const daysAgo = Math.floor(Math.random() * 60); // Orders within last 60 days
+        const daysAgo = Math.floor(Math.random() * 30); // Orders within last 30 days
         const hoursOffset = Math.floor(Math.random() * 24); // Random hour of day
         const orderDate = new Date(now.getTime() - (daysAgo * 24 * 3600_000) - (hoursOffset * 3600_000));
         
-        // Random number of items per order (1-3)
-        const numItems = Math.floor(Math.random() * 3) + 1;
-        const selectedProducts = products
-          .sort(() => 0.5 - Math.random())
-          .slice(0, numItems);
+        // Single item per order to keep transaction simple
+        const productIndex = Math.floor(Math.random() * products.length);
+        const selectedProduct = products[productIndex];
+        const quantity = Math.floor(Math.random() * 2) + 1; // 1-2 quantity
+        const unitPrice = productData[productIndex].price;
+        const totalPrice = unitPrice * quantity;
         
-        let totalPrice = 0;
-        const lineItems: ShopifyOrderLineItem[] = selectedProducts.map((product, itemIndex) => {
-          const quantity = Math.floor(Math.random() * 2) + 1; // 1-2 quantity
-          const productIndex = parseInt(product.id.split('_')[2]) - 1;
-          const unitPrice = productData[productIndex].price;
-          const itemTotal = unitPrice * quantity;
-          totalPrice += itemTotal;
-          
-          return {
-            id: `li_stub_${orderCounter}_${itemIndex + 1}`,
-            product_id: product.id,
-            quantity,
-            price: unitPrice.toFixed(2)
-          };
-        });
+        const lineItems: ShopifyOrderLineItem[] = [{
+          id: `li_stub_${orderCounter}_1`,
+          product_id: selectedProduct.id,
+          quantity,
+          price: unitPrice.toFixed(2)
+        }];
         
         orders.push({
           id: `o_stub_${orderCounter}`,
