@@ -11,6 +11,7 @@ import { ordersRouter } from './orders.js';
 import { productsRouter } from './products.js';
 import { eventsRouter } from './events.js';
 
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export const apiRouter = Router();
 apiRouter.use('/tenants', tenantsRouter);
 apiRouter.use('/metrics', metricsRouter);
