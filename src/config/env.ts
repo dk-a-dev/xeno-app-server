@@ -2,7 +2,6 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Allow composing DATABASE_URL from discrete POSTGRES_* variables if not provided.
 function buildDatabaseUrl(): string {
   if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim().length > 0) {
     return process.env.DATABASE_URL;
@@ -18,7 +17,7 @@ function buildDatabaseUrl(): string {
 export const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: parseInt(process.env.PORT || '4000', 10),
-  DATABASE_URL: buildDatabaseUrl(),
+  DATABASE_URL: process.env.DATABASE_URL || buildDatabaseUrl(),
   JWT_SECRET: process.env.JWT_SECRET || 'devsecret',
   JWT_EXP_HOURS: parseInt(process.env.JWT_EXP_HOURS || '12', 10),
   SYNC_INTERVAL_CRON: process.env.SYNC_INTERVAL_CRON || '*/15 * * * *',
