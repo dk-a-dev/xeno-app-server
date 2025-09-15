@@ -72,6 +72,7 @@ A full-stack multi-tenant SaaS platform that provides comprehensive analytics an
 - **Framework:** Express.js with middleware
 - **ORM:** Prisma for type-safe database operations
 - **Database:** PostgreSQL for ACID compliance
+- **Queue System:** Redis with BullMQ for background job processing
 - **Authentication:** JWT with bcrypt password hashing
 - **Deployment:** Render with automatic deployments
 
@@ -84,6 +85,7 @@ A full-stack multi-tenant SaaS platform that provides comprehensive analytics an
 
 ### **Infrastructure**
 - **Database:** Render PostgreSQL
+- **Queue System:** Redis for background processing
 - **API Hosting:** Render
 - **Frontend:** Vercel
 
@@ -117,12 +119,14 @@ A full-stack multi-tenant SaaS platform that provides comprehensive analytics an
    JWT_SECRET=your-super-secret-jwt-key
    SHOPIFY_API_KEY=your-shopify-api-key
    SHOPIFY_API_SECRET=your-shopify-api-secret
+   REDIS_URL=redis://localhost:6379
+   QUEUE_DRIVER=redis
    ```
 
-4. **Start the database (Docker)**
+4. **Start the database and Redis (Docker)**
    ```bash
    cd server
-   docker compose up -d db
+   docker compose up -d db redis
    ```
 
 5. **Run database migrations**
@@ -157,7 +161,57 @@ docker compose up -d
 # Frontend: http://localhost:3000
 # Backend: http://localhost:8080
 # Database: localhost:5432
+# Redis: localhost:6379
 ```
+
+## **Redis Queue System**
+
+### **Queue Configuration**
+The application supports two queue drivers:
+- **Memory Queue** (default): For development and simple deployments
+- **Redis Queue** (recommended): For production with background job processing
+
+### **Environment Variables**
+```bash
+QUEUE_DRIVER=redis          # Use 'memory' or 'redis'
+REDIS_URL=redis://localhost:6379
+```
+
+### **Testing Redis Integration**
+1. **Start Redis**:
+   ```bash
+   docker compose up -d redis
+   ```
+
+2. **Run server with Redis**:
+   ```bash
+   REDIS_URL=redis://localhost:6379 QUEUE_DRIVER=redis pnpm dev
+   ```
+
+3. **Verify Redis connection**:
+   ```bash
+   curl http://localhost:8080/diagnostics
+   ```
+
+   **Expected output**:
+   ```json
+   {
+     "queue": {
+       "mode": "redis",
+       "driver": "redis", 
+       "redis_url_set": true
+     },
+     "environment": {
+       "node_env": "development"
+     }
+   }
+   ```
+
+### **Queue Benefits**
+- **Reliability**: Jobs persist through server restarts
+- **Scalability**: Multiple workers can process jobs
+- **Retry Logic**: Automatic retry with exponential backoff
+- **Monitoring**: Job status and queue health tracking
 
 ## **API Documentation**
 
@@ -176,6 +230,9 @@ curl -X POST http://localhost:8080/api/v1/tenants/login \
 
 ### **Core Endpoints**
 ```bash
+# System diagnostics
+GET /diagnostics
+
 # Get business metrics
 GET /api/v1/metrics/summary
 GET /api/v1/metrics/orders-by-date

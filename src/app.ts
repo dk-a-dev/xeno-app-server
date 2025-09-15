@@ -27,6 +27,29 @@ export function createApp(): Express {
 
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
   
+  app.get('/diagnostics', async (_req, res) => {
+    try {
+      const { queue } = await import('./services/queue.js');
+      const diagnostics = {
+        queue: {
+          mode: queue.mode,
+          driver: env.QUEUE_DRIVER,
+          redis_url_set: !!env.REDIS_URL,
+          redis_url_masked: env.REDIS_URL ? env.REDIS_URL.replace(/\/\/.*@/, '//***:***@') : null
+        },
+        environment: {
+          node_env: env.NODE_ENV,
+          scheduler_enabled: env.SCHEDULER_ENABLED,
+          dev_fake_shopify: env.DEV_FAKE_SHOPIFY
+        },
+        timestamp: new Date().toISOString()
+      };
+      res.json(diagnostics);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to get diagnostics', details: error instanceof Error ? error.message : String(error) });
+    }
+  });
+  
   app.get('/docs', (_req, res) => {
     const docsContent = `
 # Xeno Shopify Data Ingestion & Insights API
