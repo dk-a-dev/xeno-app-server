@@ -1,0 +1,64 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: xeno_app
+      POSTGRES_PASSWORD: xeno_pass
+      POSTGRES_DB: xeno
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - '5432:5432'
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xeno_app -d xeno"]
+      interval: 5s
+      retries: 5
+      timeout: 3s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    command: ["redis-server", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.dev
+    environment:
+      DATABASE_URL: postgresql://xeno_app:xeno_pass@db:5432/xeno?schema=public
+      REDIS_URL: redis://redis:6379
+      QUEUE_DRIVER: ${QUEUE_DRIVER:-memory}
+      NODE_ENV: development
+      CI: "true"
+    env_file: ./server/.env
+    command:
+      - sh
+      - -c
+      - |
+        if [ ! -f node_modules/.bin/tsx ]; then
+          echo 'Installing deps (server)...'
+          pnpm install --no-frozen-lockfile
+        fi
+        echo 'Generating Prisma client...'
+        pnpm prisma:generate
+        pnpm dev
+    volumes:
+      - ./server:/app
+      - server_node_modules:/app/node_modules
+    ports:
+      - '8080:8080'
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  db_data:
+  server_node_modules:
