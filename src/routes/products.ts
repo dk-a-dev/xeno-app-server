@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../services/prisma.js';
 import { authMiddleware } from '../middleware/auth.js';
 
-export const productsRouter = Router();
+export const productsRouter: Router = Router();
 productsRouter.use(authMiddleware);
 
 productsRouter.get('/', async (req, res) => {

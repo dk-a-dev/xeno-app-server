@@ -20,7 +20,7 @@ function pruneStates() {
   }
 }
 
-export const shopifyAuthRouter = Router();
+export const shopifyAuthRouter: Router = Router();
 shopifyAuthRouter.use(authMiddleware);
 
 shopifyAuthRouter.post('/install', async (req, res) => {

@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 
-export const tenantsRouter = Router();
+export const tenantsRouter: Router = Router();
 
 tenantsRouter.post('/', async (req, res) => {
   const { name, email, password } = req.body;

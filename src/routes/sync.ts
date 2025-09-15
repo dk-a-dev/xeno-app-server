@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth.js';
 import { shopifyService } from '../services/shopify.js';
 
-export const syncRouter = Router();
+export const syncRouter: Router = Router();
 syncRouter.use(authMiddleware);
 
 // Manual trigger for a tenant's Shopify sync

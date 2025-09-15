@@ -38,7 +38,7 @@ services:
       QUEUE_DRIVER: ${QUEUE_DRIVER:-memory}
       NODE_ENV: development
       CI: "true"
-    env_file: ./server/.env
+    env_file: .env
     command:
       - sh
       - -c

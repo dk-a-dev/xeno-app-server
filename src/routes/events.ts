@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth.js';
 import { prisma } from '../services/prisma.js'; 
 
-export const eventsRouter = Router();
+export const eventsRouter: Router = Router();
 eventsRouter.use(authMiddleware);
 
 eventsRouter.post('/', async (req, res) => {

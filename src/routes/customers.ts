@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../services/prisma.js';
 import { authMiddleware } from '../middleware/auth.js';
 
-export const customersRouter = Router();
+export const customersRouter: Router = Router();
 
 
 customersRouter.use(authMiddleware);

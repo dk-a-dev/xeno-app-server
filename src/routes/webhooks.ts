@@ -7,7 +7,7 @@ import { processWebhook } from '../services/webhookProcessor.js';
 import { env } from '../config/env.js';
 import crypto from 'crypto';
 
-export const webhooksRouter = Router();
+export const webhooksRouter: Router = Router();
 
 // Helper to safely parse raw JSON
 function safeJsonParse(buf: Buffer): any {

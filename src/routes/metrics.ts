@@ -4,7 +4,7 @@ import { authMiddleware } from '../middleware/auth.js';
 import { Decimal } from '@prisma/client/runtime/library';
 import { Prisma } from '@prisma/client';
 
-export const metricsRouter = Router();
+export const metricsRouter: Router = Router();
 metricsRouter.use(authMiddleware);
 
 metricsRouter.get('/summary', async (req, res) => {
