@@ -3,7 +3,6 @@ import { prisma } from './prisma.js';
 import { logger } from '../config/logger.js';
 import { env } from '../config/env.js';
 
-// Placeholder types for Shopify data (subset)
 interface ShopifyCustomer { id: string; email?: string; first_name?: string; last_name?: string; }
 interface ShopifyProduct { id: string; title: string; }
 interface ShopifyOrderLineItem { id: string; product_id?: string; quantity: number; price: string; }
@@ -19,13 +18,11 @@ interface FullSyncResult {
 }
 
 class ShopifyService {
-  // Step 1 generate install URL (OAuth) – placeholder values
   generateInstallUrl(shopDomain: string, state: string) {
     const scopes = ['read_orders', 'read_products', 'read_customers'];
     return `https://${shopDomain}/admin/oauth/authorize?client_id=${env.SHOPIFY_API_KEY}&scope=${scopes.join(',')}&redirect_uri=${encodeURIComponent('https://your-app.com/oauth/callback')}&state=${state}`;
   }
 
-  // Step 2: exchange code for token (real call unless DEV_FAKE_SHOPIFY)
   async exchangeCodeForToken(shopDomain: string, code: string) {
     if (env.DEV_FAKE_SHOPIFY) {
       logger.warn({ shopDomain }, 'DEV_FAKE_SHOPIFY enabled; returning fake token');
@@ -123,34 +120,96 @@ class ShopifyService {
 
   private buildStubData(tenantId: string) {
     const now = new Date();
-    const customers: ShopifyCustomer[] = [
-      { id: 'c_stub_1', email: `stub1+${tenantId}@example.com`, first_name: 'Alice', last_name: 'Stub' },
-      { id: 'c_stub_2', email: `stub2+${tenantId}@example.com`, first_name: 'Bob', last_name: 'Stub' }
+    
+    // Generate 20 customers with diverse names
+    const customerNames = [
+      { first: 'Alice', last: 'Johnson' }, { first: 'Bob', last: 'Smith' }, { first: 'Carol', last: 'Williams' },
+      { first: 'David', last: 'Brown' }, { first: 'Emma', last: 'Davis' }, { first: 'Frank', last: 'Miller' },
+      { first: 'Grace', last: 'Wilson' }, { first: 'Henry', last: 'Moore' }, { first: 'Isabella', last: 'Taylor' },
+      { first: 'Jack', last: 'Anderson' }, { first: 'Katie', last: 'Thomas' }, { first: 'Liam', last: 'Jackson' },
+      { first: 'Maya', last: 'White' }, { first: 'Noah', last: 'Harris' }, { first: 'Olivia', last: 'Martin' },
+      { first: 'Paul', last: 'Thompson' }, { first: 'Quinn', last: 'Garcia' }, { first: 'Ruby', last: 'Martinez' },
+      { first: 'Sam', last: 'Robinson' }, { first: 'Tina', last: 'Clark' }
     ];
-    const products: ShopifyProduct[] = [
-      { id: 'p_stub_1', title: 'Stub Tee' },
-      { id: 'p_stub_2', title: 'Stub Hoodie' }
+    
+    const customers: ShopifyCustomer[] = customerNames.map((name, i) => ({
+      id: `c_stub_${i + 1}`,
+      email: `${name.first.toLowerCase()}${i + 1}+${tenantId}@example.com`,
+      first_name: name.first,
+      last_name: name.last
+    }));
+
+    // Generate 15 products across different categories with varied pricing
+    const productData = [
+      { title: 'Premium Cotton T-Shirt', price: 29.99 },
+      { title: 'Designer Hoodie', price: 89.99 },
+      { title: 'Wireless Bluetooth Headphones', price: 159.99 },
+      { title: 'Smart Fitness Watch', price: 299.99 },
+      { title: 'Vintage Leather Jacket', price: 199.99 },
+      { title: 'Running Sneakers', price: 129.99 },
+      { title: 'Artisan Coffee Mug', price: 24.99 },
+      { title: 'Eco-Friendly Water Bottle', price: 34.99 },
+      { title: 'Professional Backpack', price: 79.99 },
+      { title: 'Silk Scarf Collection', price: 69.99 },
+      { title: 'Gaming Mouse Pad', price: 19.99 },
+      { title: 'Handcrafted Wooden Bowl', price: 45.99 },
+      { title: 'Organic Skincare Set', price: 124.99 },
+      { title: 'Bluetooth Speaker', price: 89.99 },
+      { title: 'Premium Sunglasses', price: 149.99 }
     ];
-    const orders: ShopifyOrder[] = [
-      {
-        id: 'o_stub_1',
-        created_at: new Date(now.getTime() - 3600_000).toISOString(),
-        total_price: '59.00',
-        customer: customers[0],
-        line_items: [
-          { id: 'li_stub_1', product_id: products[0].id, quantity: 1, price: '59.00' }
-        ]
-      },
-      {
-        id: 'o_stub_2',
-        created_at: new Date(now.getTime() - 2 * 3600_000).toISOString(),
-        total_price: '89.00',
-        customer: customers[1],
-        line_items: [
-          { id: 'li_stub_2', product_id: products[1].id, quantity: 1, price: '89.00' }
-        ]
+    
+    const products: ShopifyProduct[] = productData.map((product, i) => ({
+      id: `p_stub_${i + 1}`,
+      title: product.title
+    }));
+
+    // Generate 50+ orders with realistic distribution
+    const orders: ShopifyOrder[] = [];
+    let orderCounter = 1;
+    
+    // Create orders for each customer (1-4 orders per customer)
+    customers.forEach((customer, customerIndex) => {
+      const numOrders = Math.floor(Math.random() * 4) + 1; // 1-4 orders per customer
+      
+      for (let orderIndex = 0; orderIndex < numOrders; orderIndex++) {
+        const daysAgo = Math.floor(Math.random() * 60); // Orders within last 60 days
+        const hoursOffset = Math.floor(Math.random() * 24); // Random hour of day
+        const orderDate = new Date(now.getTime() - (daysAgo * 24 * 3600_000) - (hoursOffset * 3600_000));
+        
+        // Random number of items per order (1-3)
+        const numItems = Math.floor(Math.random() * 3) + 1;
+        const selectedProducts = products
+          .sort(() => 0.5 - Math.random())
+          .slice(0, numItems);
+        
+        let totalPrice = 0;
+        const lineItems: ShopifyOrderLineItem[] = selectedProducts.map((product, itemIndex) => {
+          const quantity = Math.floor(Math.random() * 2) + 1; // 1-2 quantity
+          const productIndex = parseInt(product.id.split('_')[2]) - 1;
+          const unitPrice = productData[productIndex].price;
+          const itemTotal = unitPrice * quantity;
+          totalPrice += itemTotal;
+          
+          return {
+            id: `li_stub_${orderCounter}_${itemIndex + 1}`,
+            product_id: product.id,
+            quantity,
+            price: unitPrice.toFixed(2)
+          };
+        });
+        
+        orders.push({
+          id: `o_stub_${orderCounter}`,
+          created_at: orderDate.toISOString(),
+          total_price: totalPrice.toFixed(2),
+          customer,
+          line_items: lineItems
+        });
+        
+        orderCounter++;
       }
-    ];
+    });
+    
     return { customers, products, orders };
   }
 
